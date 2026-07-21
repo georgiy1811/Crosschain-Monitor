@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arc Bridge Monitor — USDC Cross-Chain Flows</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #080d16;
+    --bg-grid: #0c1420;
+    --panel: #0f172a;
+    --panel-2: #111d33;
+    --line: #1d2941;
+    --line-soft: #16203548;
+    --text: #e7ecf6;
+    --muted: #7c8aa5;
+    --usdc: #2775ca;
+    --usdc-soft: #2775ca33;
+    --teal: #17d9a3;
+    --teal-soft: #17d9a326;
+    --amber: #f2a65a;
+    --amber-soft: #f2a65a22;
+    --red: #e5566d;
+    --arc-purple: #8b7cf6;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(1200px 700px at 15% -10%, #0e1c33 0%, transparent 60%),
+      radial-gradient(1000px 600px at 105% 10%, #14122a 0%, transparent 55%),
+      var(--bg);
+    color:var(--text);
+    font-family:'Inter', sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1240px;margin:0 auto;padding:28px 24px 64px;}
+
+  /* ---------- header ---------- */
+  header{
+    display:flex;align-items:center;justify-content:space-between;
+    flex-wrap:wrap;gap:16px;
+    padding-bottom:22px;border-bottom:1px solid var(--line);
+    margin-bottom:28px;
+  }
+  .brand{display:flex;align-items:center;gap:12px;}
+  .mark{
+    width:38px;height:38px;border-radius:9px;
+    background:linear-gradient(135deg,var(--usdc),var(--arc-purple));
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Space Grotesk';font-weight:700;color:#fff;font-size:15px;
+    box-shadow:0 0 24px #2775ca55;
+  }
+  .brand-text h1{
+    font-family:'Space Grotesk';font-weight:600;font-size:19px;margin:0;
+    letter-spacing:0.2px;
+  }
+  .brand-text p{margin:2px 0 0;font-size:12.5px;color:var(--muted);font-family:'IBM Plex Mono';}
+  .status-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .pill{
+    display:flex;align-items:center;gap:7px;
+    background:var(--panel-2);border:1px solid var(--line);
+    padding:7px 12px;border-radius:100px;font-size:12px;color:var(--muted);
+    font-family:'IBM Plex Mono';
+  }
+  .dot-live{width:7px;height:7px;border-radius:50%;background:var(--teal);
+    box-shadow:0 0 0 0 var(--teal-soft);animation:pulse-dot 1.8s infinite;}
+  @keyframes pulse-dot{
+    0%{box-shadow:0 0 0 0 #17d9a366;}
+    70%{box-shadow:0 0 0 8px #17d9a300;}
+    100%{box-shadow:0 0 0 0 #17d9a300;}
+  }
+  .pill.testnet{color:var(--amber);border-color:#f2a65a3d;}
+  .pill.testnet .dot-live{background:var(--amber);animation:none;}
+
+  /* ---------- disclaimer ---------- */
+  .disclaimer{
+    background:var(--panel);border:1px solid var(--line);
+    border-left:3px solid var(--amber);
+    border-radius:6px;padding:12px 16px;margin-bottom:26px;
+    font-size:12.5px;color:var(--muted);line-height:1.55;
+    font-family:'IBM Plex Mono';
+  }
+  .disclaimer b{color:var(--text);font-weight:500;}
+
+  /* ---------- hero / signature ---------- */
+  .hero{
+    background:var(--panel);border:1px solid var(--line);border-radius:16px;
+    padding:8px 8px 0;margin-bottom:24px;overflow:hidden;position:relative;
+  }
+  .hero-head{padding:22px 26px 0;}
+  .hero-head h2{font-family:'Space Grotesk';font-size:20px;margin:0 0 6px;font-weight:600;}
+  .hero-head p{margin:0;color:var(--muted);font-size:13px;max-width:560px;line-height:1.5;}
+  .legend{display:flex;gap:18px;padding:14px 26px 0;flex-wrap:wrap;}
+  .legend span{font-size:11.5px;color:var(--muted);font-family:'IBM Plex Mono';display:flex;align-items:center;gap:6px;}
+  .legend i{width:8px;height:8px;border-radius:50%;display:inline-block;}
+  svg.hubmap{display:block;width:100%;height:auto;}
+
+  .node-label{font-family:'IBM Plex Mono';font-size:12px;fill:var(--text);}
+  .node-sub{font-family:'IBM Plex Mono';font-size:9.5px;fill:var(--muted);}
+  .hub-label{font-family:'Space Grotesk';font-weight:700;font-size:15px;fill:#fff;}
+  .hub-sub{font-family:'IBM Plex Mono';font-size:9px;fill:#dfe3ff;}
+
+  .particle{filter:drop-shadow(0 0 4px currentColor);}
+
+  /* ---------- stats grid ---------- */
+  .stats{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;
+  }
+  @media (max-width:860px){.stats{grid-template-columns:repeat(2,1fr);}}
+  .stat{
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:16px 18px;
+  }
+  .stat .k{font-size:11px;color:var(--muted);font-family:'IBM Plex Mono';text-transform:uppercase;letter-spacing:0.06em;}
+  .stat .v{font-family:'IBM Plex Mono';font-size:25px;font-weight:600;margin-top:8px;color:var(--text);}
+  .stat .v small{font-size:13px;color:var(--muted);font-weight:400;}
+  .stat .delta{font-size:11.5px;margin-top:6px;font-family:'IBM Plex Mono';}
+  .delta.up{color:var(--teal);}
+  .delta.down{color:var(--red);}
+
+  /* ---------- columns ---------- */
+  .cols{display:grid;grid-template-columns:1fr 1.5fr;gap:16px;align-items:start;}
+  @media (max-width:900px){.cols{grid-template-columns:1fr;}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;}
+  .card h3{font-family:'Space Grotesk';font-size:14.5px;margin:0 0 4px;font-weight:600;}
+  .card .subhead{font-size:11.5px;color:var(--muted);margin-bottom:16px;font-family:'IBM Plex Mono';}
+
+  .barrow{margin-bottom:14px;}
+  .barrow:last-child{margin-bottom:0;}
+  .barrow .top{display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px;font-family:'IBM Plex Mono';}
+  .barrow .top .name{color:var(--text);display:flex;align-items:center;gap:7px;}
+  .barrow .top .name i{width:7px;height:7px;border-radius:2px;display:inline-block;}
+  .barrow .top .amt{color:var(--muted);}
+  .track{height:8px;border-radius:5px;background:var(--line-soft);overflow:hidden;}
+  .fill{height:100%;border-radius:5px;transition:width .6s ease;}
+
+  table{width:100%;border-collapse:collapse;font-family:'IBM Plex Mono';font-size:12px;}
+  thead th{
+    text-align:left;color:var(--muted);font-weight:500;font-size:10.5px;
+    text-transform:uppercase;letter-spacing:0.05em;
+    padding:0 8px 10px;border-bottom:1px solid var(--line);
+  }
+  tbody td{padding:9px 8px;border-bottom:1px solid var(--line-soft);color:var(--text);white-space:nowrap;}
+  tbody tr:last-child td{border-bottom:none;}
+  .corridor{display:flex;align-items:center;gap:6px;}
+  .arrow{color:var(--muted);}
+  .badge{
+    display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:100px;
+    font-size:10.5px;
+  }
+  .badge.minted{background:var(--teal-soft);color:var(--teal);}
+  .badge.pending{background:var(--amber-soft);color:var(--amber);}
+  .badge i{width:5px;height:5px;border-radius:50%;background:currentColor;}
+  .hash{color:var(--muted);}
+  .table-wrap{max-height:390px;overflow-y:auto;}
+  .table-wrap::-webkit-scrollbar{width:6px;}
+  .table-wrap::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px;}
+
+  tr.row-in{animation:rowin .5s ease;}
+  @keyframes rowin{from{background:#17d9a318;} to{background:transparent;}}
+
+  footer{
+    margin-top:30px;padding-top:20px;border-top:1px solid var(--line);
+    display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;
+    font-size:11.5px;color:var(--muted);font-family:'IBM Plex Mono';
+  }
+  footer a{color:var(--usdc);text-decoration:none;}
+  footer a:hover{text-decoration:underline;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <div class="mark">Ⓐ</div>
+      <div class="brand-text">
+        <h1>Arc Bridge Monitor</h1>
+        <p>USDC cross-chain flow · Arc Testnet ⇄ partner chains</p>
+      </div>
+    </div>
+    <div class="status-row">
+      <div class="pill"><span class="dot-live"></span> LIVE FEED (SIMULATED)</div>
+      <div class="pill testnet"><span class="dot-live"></span> ARC TESTNET</div>
+      <div class="pill">CCTP v2 · Fast Transfer</div>
+    </div>
+  </header>
+
+  <div class="disclaimer">
+    <b>About the data:</b> Arc's public testnet doesn't yet expose a single public API with aggregated bridge-flow
+    statistics, so this dashboard runs on locally generated data modeled on real CCTP bridging mechanics
+    (burn on source chain → attestation → mint on Arc, and vice versa). The screen's structure (hub model,
+    corridors, pending/minted status) mirrors how a real monitor would look once wired up to
+    <span style="color:var(--text)">docs.arc.network</span> or a Blockscout-style indexer.
+  </div>
+
+  <div class="hero">
+    <div class="hero-head">
+      <h2>USDC flow map</h2>
+      <p>Arc Testnet as settlement hub. Line thickness ≈ relative 24h volume per corridor. Dots ≈ in-flight transfers.</p>
+    </div>
+    <div class="legend">
+      <span><i style="background:var(--teal)"></i> Inbound to Arc</span>
+      <span><i style="background:var(--amber)"></i> Outbound from Arc</span>
+      <span><i style="background:var(--usdc)"></i> Corridor volume</span>
+    </div>
+    <svg class="hubmap" viewBox="0 0 900 540" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="hubglow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#8b7cf6" stop-opacity="0.55"/>
+          <stop offset="100%" stop-color="#8b7cf6" stop-opacity="0"/>
+        </radialGradient>
+        <linearGradient id="pathgrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#2775ca" stop-opacity="0.55"/>
+          <stop offset="100%" stop-color="#2775ca" stop-opacity="0.12"/>
+        </linearGradient>
+      </defs>
+
+      <!-- corridor paths -->
+      <path id="path-eth" d="M450,270 Q470,165 450,65"  fill="none" stroke="url(#pathgrad)" stroke-width="3"/>
+      <path id="path-base" d="M450,270 Q560,220 649.7,205.1" fill="none" stroke="url(#pathgrad)" stroke-width="3"/>
+      <path id="path-fuji" d="M450,270 Q530,360 573.4,439.9" fill="none" stroke="url(#pathgrad)" stroke-width="3"/>
+      <path id="path-sol"  d="M450,270 Q380,380 326.6,439.9" fill="none" stroke="url(#pathgrad)" stroke-width="3"/>
+      <path id="path-op"   d="M450,270 Q350,210 250.3,205.1" fill="none" stroke="url(#pathgrad)" stroke-width="3"/>
+
+      <!-- hub -->
+      <circle cx="450" cy="270" r="66" fill="url(#hubglow)"/>
+      <circle cx="450" cy="270" r="38" fill="#141034" stroke="#8b7cf6" stroke-width="1.5"/>
+      <text x="450" y="266" text-anchor="middle" class="hub-label">ARC</text>
+      <text x="450" y="280" text-anchor="middle" class="hub-sub">TESTNET</text>
+
+      <!-- nodes -->
+      <g id="node-eth">
+        <circle cx="450" cy="65" r="26" fill="#111d33" stroke="#627eea" stroke-width="1.4"/>
+        <text x="450" y="61" text-anchor="middle" class="node-label">ETH</text>
+        <text x="450" y="112" text-anchor="middle" class="node-sub">Ethereum Sepolia</text>
+      </g>
+      <g id="node-base">
+        <circle cx="649.7" cy="205.1" r="26" fill="#111d33" stroke="#2775ca" stroke-width="1.4"/>
+        <text x="649.7" y="201.1" text-anchor="middle" class="node-label">BASE</text>
+        <text x="649.7" y="252.1" text-anchor="middle" class="node-sub">Base Sepolia</text>
+      </g>
+      <g id="node-fuji">
+        <circle cx="573.4" cy="439.9" r="26" fill="#111d33" stroke="#e84142" stroke-width="1.4"/>
+        <text x="573.4" y="443.9" text-anchor="middle" class="node-label">AVAX</text>
+        <text x="573.4" y="486.9" text-anchor="middle" class="node-sub">Avalanche Fuji</text>
+      </g>
+      <g id="node-sol">
+        <circle cx="326.6" cy="439.9" r="26" fill="#111d33" stroke="#14f195" stroke-width="1.4"/>
+        <text x="326.6" y="443.9" text-anchor="middle" class="node-label">SOL</text>
+        <text x="326.6" y="486.9" text-anchor="middle" class="node-sub">Solana Devnet</text>
+      </g>
+      <g id="node-op">
+        <circle cx="250.3" cy="205.1" r="26" fill="#111d33" stroke="#ff0420" stroke-width="1.4"/>
+        <text x="250.3" y="201.1" text-anchor="middle" class="node-label">OP</text>
+        <text x="250.3" y="252.1" text-anchor="middle" class="node-sub">OP Sepolia</text>
+      </g>
+
+      <g id="particle-layer"></g>
+    </svg>
+  </div>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="k">24h Bridge Volume</div>
+      <div class="v" id="stat-volume">$0 <small>USDC</small></div>
+      <div class="delta up" id="stat-volume-delta">+0.0% vs prior 24h</div>
+    </div>
+    <div class="stat">
+      <div class="k">Net Flow (into Arc)</div>
+      <div class="v" id="stat-netflow">$0</div>
+      <div class="delta up" id="stat-netflow-note">inbound-weighted</div>
+    </div>
+    <div class="stat">
+      <div class="k">Avg. Finality (Fast Transfer)</div>
+      <div class="v">~<span id="stat-finality">14</span>s</div>
+      <div class="delta up">CCTP v2 attestation</div>
+    </div>
+    <div class="stat">
+      <div class="k">Active Corridors</div>
+      <div class="v">5 <small>/ 5</small></div>
+      <div class="delta up">all healthy</div>
+    </div>
+  </div>
+
+  <div class="cols">
+    <div class="card">
+      <h3>Volume by corridor (24h)</h3>
+      <div class="subhead">Arc Testnet ⇄ partner chain</div>
+      <div id="bars"></div>
+    </div>
+
+    <div class="card">
+      <h3>Recent transfers</h3>
+      <div class="subhead">Streaming mock CCTP burn → attest → mint events</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Time</th><th>Corridor</th><th>Amount</th><th>Status</th><th>Tx</th></tr>
+          </thead>
+          <tbody id="tx-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div>Bridge mechanics modeled on Circle's Bridge Kit / CCTP docs (docs.arc.network) — <a href="https://docs.arc.network" target="_blank" rel="noopener">docs.arc.network</a></div>
+    <div id="clock"></div>
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  const chains = [
+    { id:'eth',  name:'Ethereum Sepolia', color:'#627eea', path:'path-eth', base: 480000 },
+    { id:'base', name:'Base Sepolia',     color:'#2775ca', path:'path-base', base: 310000 },
+    { id:'fuji', name:'Avalanche Fuji',   color:'#e84142', path:'path-fuji', base: 190000 },
+    { id:'sol',  name:'Solana Devnet',    color:'#14f195', path:'path-sol',  base: 260000 },
+    { id:'op',   name:'OP Sepolia',       color:'#ff0420', path:'path-op',  base: 140000 },
+  ];
+
+  // seed per-chain running volume + in/out split
+  chains.forEach(c=>{
+    c.volume = c.base * (0.8 + Math.random()*0.4);
+    c.inbound = c.volume * (0.45 + Math.random()*0.2);
+    c.outbound = c.volume - c.inbound;
+  });
+
+  const fmtUSD = n => '$' + Math.round(n).toLocaleString('en-US');
+  const fmtUSDshort = n => {
+    if(n >= 1000000) return '$'+(n/1000000).toFixed(2)+'M';
+    if(n >= 1000) return '$'+(n/1000).toFixed(1)+'K';
+    return '$'+Math.round(n);
+  };
+
+  function renderBars(){
+    const maxVol = Math.max(...chains.map(c=>c.volume));
+    const el = document.getElementById('bars');
+    el.innerHTML = chains
+      .slice()
+      .sort((a,b)=>b.volume-a.volume)
+      .map(c=>{
+        const pct = (c.volume/maxVol*100).toFixed(1);
+        return `<div class="barrow">
+          <div class="top">
+            <span class="name"><i style="background:${c.color}"></i>${c.name}</span>
+            <span class="amt">${fmtUSDshort(c.volume)}</span>
+          </div>
+          <div class="track"><div class="fill" style="width:${pct}%;background:linear-gradient(90deg, ${c.color}99, ${c.color})"></div></div>
+        </div>`;
+      }).join('');
+  }
+
+  function renderStats(){
+    const total = chains.reduce((s,c)=>s+c.volume,0);
+    const totalIn = chains.reduce((s,c)=>s+c.inbound,0);
+    const totalOut = chains.reduce((s,c)=>s+c.outbound,0);
+    document.getElementById('stat-volume').innerHTML = fmtUSD(total) + ' <small>USDC</small>';
+    const net = totalIn - totalOut;
+    document.getElementById('stat-netflow').textContent = (net>=0?'+':'') + fmtUSDshort(net);
+    document.getElementById('stat-netflow-note').textContent = net>=0 ? 'net inbound to Arc' : 'net outbound from Arc';
+    const deltaPct = (Math.random()*6 + 1).toFixed(1);
+    const deltaUp = Math.random() > 0.25;
+    const deltaEl = document.getElementById('stat-volume-delta');
+    deltaEl.textContent = (deltaUp?'+':'-') + deltaPct + '% vs prior 24h';
+    deltaEl.className = 'delta ' + (deltaUp ? 'up' : 'down');
+    document.getElementById('stat-finality').textContent = (10 + Math.random()*10).toFixed(0);
+  }
+
+  // ----- transfer ticker -----
+  const txBody = document.getElementById('tx-body');
+  const MAX_ROWS = 40;
+
+  function randHash(){
+    const chars = '0123456789abcdef';
+    let h = '0x';
+    for(let i=0;i<6;i++) h += chars[Math.floor(Math.random()*16)];
+    return h + '…';
+  }
+
+  function randAmount(){
+    // log-ish distribution: mostly modest, occasional large institutional-size transfer
+    const r = Math.random();
+    if(r > 0.94) return Math.round(50000 + Math.random()*450000);
+    if(r > 0.7) return Math.round(5000 + Math.random()*40000);
+    return Math.round(150 + Math.random()*4800);
+  }
+
+  function addTransferRow(chain, direction, amount, status){
+    const row = document.createElement('tr');
+    row.className = 'row-in';
+    const from = direction === 'in' ? chain.name : 'Arc Testnet';
+    const to   = direction === 'in' ? 'Arc Testnet' : chain.name;
+    row.innerHTML = `
+      <td>just now</td>
+      <td><div class="corridor">${from} <span class="arrow">→</span> ${to}</div></td>
+      <td>${fmtUSDshort(amount)}</td>
+      <td><span class="badge ${status}"><i></i>${status === 'minted' ? 'Minted' : 'Pending attestation'}</span></td>
+      <td class="hash">${randHash()}</td>
+    `;
+    txBody.insertBefore(row, txBody.firstChild);
+    while(txBody.children.length > MAX_ROWS) txBody.removeChild(txBody.lastChild);
+  }
+
+  // age existing "just now" labels roughly
+  function ageRows(){
+    const rows = txBody.querySelectorAll('td:first-child');
+    rows.forEach((td, i) => {
+      if (i === 0) return;
+      const secs = i * 7 + Math.floor(Math.random()*4);
+      td.textContent = secs < 60 ? secs + 's ago' : Math.floor(secs/60) + 'm ago';
+    });
+  }
+
+  // ----- particle animation along svg path -----
+  const layer = document.getElementById('particle-layer');
+  const svgNS = 'http://www.w3.org/2000/svg';
+
+  function spawnParticle(chain, direction){
+    const path = document.getElementById(chain.path);
+    const len = path.getTotalLength();
+    const dot = document.createElementNS(svgNS,'circle');
+    dot.setAttribute('r','4.2');
+    dot.setAttribute('class','particle');
+    dot.style.color = direction === 'in' ? '#17d9a3' : '#f2a65a';
+    dot.setAttribute('fill', direction === 'in' ? '#17d9a3' : '#f2a65a');
+    layer.appendChild(dot);
+
+    const duration = 1800 + Math.random()*700;
+    const start = performance.now();
+
+    function tick(now){
+      let t = (now - start) / duration;
+      if(t > 1) t = 1;
+      // direction 'in' travels from node -> hub (t=1 -> t=0 along path), 'out' travels hub -> node (t=0 -> t=1)
+      const dist = direction === 'in' ? (1-t) * len : t * len;
+      const pt = path.getPointAtLength(dist);
+      dot.setAttribute('cx', pt.x);
+      dot.setAttribute('cy', pt.y);
+      dot.setAttribute('opacity', Math.min(1, 4*Math.min(t,1-t)+0.15));
+      if(t < 1){
+        requestAnimationFrame(tick);
+      } else {
+        layer.removeChild(dot);
+      }
+    }
+    requestAnimationFrame(tick);
+  }
+
+  // ----- main tick loop -----
+  function generateEvent(){
+    const chain = chains[Math.floor(Math.random()*chains.length)];
+    const direction = Math.random() > 0.48 ? 'in' : 'out';
+    const amount = randAmount();
+    const status = Math.random() > 0.22 ? 'minted' : 'pending';
+
+    if(direction === 'in'){ chain.inbound += amount; } else { chain.outbound += amount; }
+    chain.volume += amount;
+
+    spawnParticle(chain, direction);
+    addTransferRow(chain, direction, amount, status);
+    renderBars();
+    renderStats();
+  }
+
+  renderBars();
+  renderStats();
+  // seed a few initial rows so it doesn't look empty
+  for(let i=0;i<10;i++) generateEvent();
+  ageRows();
+
+  setInterval(generateEvent, 1700);
+  setInterval(ageRows, 5000);
+
+  function updateClock(){
+    document.getElementById('clock').textContent = new Date().toUTCString().replace('GMT','UTC');
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+})();
+</script>
+</body>
+</html>
